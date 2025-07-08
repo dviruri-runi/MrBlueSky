@@ -1,8 +1,3 @@
-/* While this template provides a good starting point for using Wear Compose, you can always
- * take a look at https://github.com/android/wear-os-samples/tree/main/ComposeStarter to find the
- * most up to date changes to the libraries and their usages.
- */
-
 package com.example.mrbluesky.presentation
 
 import android.annotation.SuppressLint
@@ -11,34 +6,22 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.wear.compose.material.Button
+import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
+import androidx.wear.compose.material.*
 import androidx.wear.compose.material.ButtonDefaults
 import androidx.wear.compose.material.CircularProgressIndicator
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.compose.material.Text
 import androidx.wear.compose.material.TimeText
-import androidx.wear.tooling.preview.devices.WearDevices
-import com.example.mrbluesky.R
 import com.example.mrbluesky.presentation.theme.MrBlueSkyTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -54,19 +37,27 @@ import okhttp3.MediaType.Companion.toMediaType
 
 class MainActivity : ComponentActivity() {
 
-    private var showButton = mutableStateOf(true)
+    private var currentScreen = mutableStateOf("input") // "input", "loading", "result"
+    private var userAge = mutableStateOf(35)
+    private var userGender = mutableStateOf("M")
+    private var userHours = mutableStateOf(3)
+    private var userMinutes = mutableStateOf(30)
+    private var userSeconds = mutableStateOf(0)
     private var resultText = mutableStateOf("Calculating...")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
-
         super.onCreate(savedInstanceState)
-
         setTheme(android.R.style.Theme_DeviceDefault)
 
         setContent {
             WearApp(
-                showButton = showButton,
+                currentScreen = currentScreen,
+                userAge = userAge,
+                userGender = userGender,
+                userHours = userHours,
+                userMinutes = userMinutes,
+                userSeconds = userSeconds,
                 resultText = resultText
             )
         }
@@ -74,12 +65,333 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun WearApp(showButton: MutableState<Boolean>,
-            resultText: MutableState<String>
+fun RaceTimeSelector(
+    hours: Int,
+    minutes: Int,
+    seconds: Int,
+    onHoursSelected: (Int) -> Unit,
+    onMinutesSelected: (Int) -> Unit,
+    onSecondsSelected: (Int) -> Unit
 ) {
+    var showHoursPicker by remember { mutableStateOf(false) }
+    var showMinutesPicker by remember { mutableStateOf(false) }
+    var showSecondsPicker by remember { mutableStateOf(false) }
+
+    when {
+        showHoursPicker -> {
+            TimePicker(
+                title = "Hours",
+                values = (2..8).toList(),
+                selectedValue = hours,
+                onValueSelected = {
+                    onHoursSelected(it)
+                    showHoursPicker = false
+                },
+                onDismiss = { showHoursPicker = false }
+            )
+        }
+        showMinutesPicker -> {
+            TimePicker(
+                title = "Minutes",
+                values = (0..59).toList(),
+                selectedValue = minutes,
+                onValueSelected = {
+                    onMinutesSelected(it)
+                    showMinutesPicker = false
+                },
+                onDismiss = { showMinutesPicker = false }
+            )
+        }
+        showSecondsPicker -> {
+            TimePicker(
+                title = "Seconds",
+                values = (0..59).toList(),
+                selectedValue = seconds,
+                onValueSelected = {
+                    onSecondsSelected(it)
+                    showSecondsPicker = false
+                },
+                onDismiss = { showSecondsPicker = false }
+            )
+        }
+        else -> {
+            // Main time display
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Race Time",
+                    style = MaterialTheme.typography.body1,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    // Hours
+                    Text(
+                        text = "$hours",
+                        style = MaterialTheme.typography.title2,
+                        color = Color(0xFF990099),
+                        modifier = Modifier
+                            .clickable { showHoursPicker = true }
+                            .background(
+                                Color(0xFF990099).copy(alpha = 0.1f),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                            )
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+
+                    Text(
+                        text = ":",
+                        style = MaterialTheme.typography.title2,
+                        color = Color(0xFF990099)
+                    )
+
+                    // Minutes
+                    Text(
+                        text = String.format("%02d", minutes),
+                        style = MaterialTheme.typography.title2,
+                        color = Color(0xFF990099),
+                        modifier = Modifier
+                            .clickable { showMinutesPicker = true }
+                            .background(
+                                Color(0xFF990099).copy(alpha = 0.1f),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                            )
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+
+                    Text(
+                        text = ":",
+                        style = MaterialTheme.typography.title2,
+                        color = Color(0xFF990099)
+                    )
+
+                    // Seconds
+                    Text(
+                        text = String.format("%02d", seconds),
+                        style = MaterialTheme.typography.title2,
+                        color = Color(0xFF990099),
+                        modifier = Modifier
+                            .clickable { showSecondsPicker = true }
+                            .background(
+                                Color(0xFF990099).copy(alpha = 0.1f),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                            )
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TimePicker(
+    title: String,
+    values: List<Int>,
+    selectedValue: Int,
+    onValueSelected: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val selectedIndex = values.indexOf(selectedValue).coerceAtLeast(0)
+    val listState = rememberScalingLazyListState(initialCenterItemIndex = selectedIndex)
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colors.background),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Select $title",
+                style = MaterialTheme.typography.title3,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            // Scrollable list of values starting at current selection
+            ScalingLazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                items(values.size) { index ->
+                    val value = values[index]
+                    val isSelected = value == selectedValue
+                    val displayValue = if (title == "Hours") "$value" else String.format("%02d", value)
+
+                    Chip(
+                        onClick = { onValueSelected(value) },
+                        label = {
+                            Text(
+                                text = displayValue,
+                                style = if (isSelected) MaterialTheme.typography.title2
+                                else MaterialTheme.typography.body1
+                            )
+                        },
+                        colors = ChipDefaults.chipColors(
+                            backgroundColor = if (isSelected) Color(0xFF990099)
+                            else MaterialTheme.colors.surface,
+                            contentColor = if (isSelected) Color.White
+                            else MaterialTheme.colors.onSurface
+                        ),
+                        modifier = Modifier.width(60.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(
+                    backgroundColor = Color.Gray,
+                    contentColor = Color.White
+                )
+            ) {
+                Text("Cancel")
+            }
+        }
+    }
+}
+
+@Composable
+fun AgeSelector(
+    selectedAge: Int,
+    onAgeSelected: (Int) -> Unit
+) {
+    var showPicker by remember { mutableStateOf(false) }
+
+    if (showPicker) {
+        // Full screen age picker
+        AgePicker(
+            selectedAge = selectedAge,
+            onAgeSelected = { age ->
+                onAgeSelected(age)
+                showPicker = false
+            },
+            onDismiss = { showPicker = false }
+        )
+    } else {
+        // Simple clickable age display
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Age",
+                style = MaterialTheme.typography.body1,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            Chip(
+                onClick = { showPicker = true },
+                label = {
+                    Text(
+                        text = "$selectedAge",
+                        style = MaterialTheme.typography.title2
+                    )
+                },
+                colors = ChipDefaults.chipColors(
+                    backgroundColor = Color(0xFF990099),
+                    contentColor = Color.White
+                )
+            )
+        }
+    }
+}
+
+@Composable
+fun AgePicker(
+    selectedAge: Int,
+    onAgeSelected: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val ages = (20..70).toList()
+    val selectedIndex = ages.indexOf(selectedAge).coerceAtLeast(0)
+    val listState = rememberScalingLazyListState(initialCenterItemIndex = selectedIndex)
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colors.background),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Select Age",
+                style = MaterialTheme.typography.title3,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            // Scrollable list of ages starting at current selection
+            ScalingLazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                items(ages.size) { index ->
+                    val age = ages[index]
+                    val isSelected = age == selectedAge
+
+                    Chip(
+                        onClick = { onAgeSelected(age) },
+                        label = {
+                            Text(
+                                text = "$age",
+                                style = if (isSelected) MaterialTheme.typography.title2
+                                else MaterialTheme.typography.body1
+                            )
+                        },
+                        colors = ChipDefaults.chipColors(
+                            backgroundColor = if (isSelected) Color(0xFF990099)
+                            else MaterialTheme.colors.surface,
+                            contentColor = if (isSelected) Color.White
+                            else MaterialTheme.colors.onSurface
+                        ),
+                        modifier = Modifier.width(60.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(
+                    backgroundColor = Color.Gray,
+                    contentColor = Color.White
+                )
+            ) {
+                Text("Cancel")
+            }
+        }
+    }
+}
+
+@Composable
+fun WearApp(
+    currentScreen: MutableState<String>,
+    userAge: MutableState<Int>,
+    userGender: MutableState<String>,
+    userHours: MutableState<Int>,
+    userMinutes: MutableState<Int>,
+    userSeconds: MutableState<Int>,
+    resultText: MutableState<String>
+) {
+    val coroutineScope = rememberCoroutineScope()
+
     MrBlueSkyTheme {
-
-
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -87,67 +399,289 @@ fun WearApp(showButton: MutableState<Boolean>,
             contentAlignment = Alignment.Center
         ) {
             TimeText()
-            ButtonJson(showButton = showButton,
-                resultText = resultText)
+
+            when (currentScreen.value) {
+                "input" -> InputScreen(
+                    userAge = userAge,
+                    userGender = userGender,
+                    userHours = userHours,
+                    userMinutes = userMinutes,
+                    userSeconds = userSeconds,
+                    onSubmit = {
+                        coroutineScope.launch {
+                            currentScreen.value = "loading"
+
+                            delay(1000)
+                            val output = sendJsonRequest(
+                                userAge.value.toString(),
+                                userGender.value,
+                                userHours.value.toString(),
+                                userMinutes.value.toString(),
+                                userSeconds.value.toString()
+                            )
+
+                            try {
+                                val json = JSONObject(output)
+                                val message = json.getString("RESULT_MESSAGE_OUT")
+
+                                val displayMessage = when (message) {
+                                    "QUALIFIED" -> "✅\nYou Are Qualified for Boston 2026 Marathon"
+                                    "NOT QUALIFIED" -> "❌\nYou Are Not Qualified for Boston 2026 Marathon"
+                                    else -> "❗ Error: Unexpected result \"$message\""
+                                }
+
+                                resultText.value = displayMessage
+                            } catch (e: Exception) {
+                                resultText.value = "❗ Error processing response: ${e.message}"
+                            }
+
+                            currentScreen.value = "result"
+                        }
+                    }
+                )
+                "loading" -> LoadingScreen()
+                "result" -> ResultScreen(
+                    resultText = resultText,
+                    onReset = { currentScreen.value = "input" }
+                )
+            }
         }
     }
 }
-
 
 @Composable
-fun ButtonJson(showButton: MutableState<Boolean>,
-               resultText: MutableState<String>) {
-    val coroutineScope = rememberCoroutineScope()
-    Box(
+fun InputScreen(
+    userAge: MutableState<Int>,
+    userGender: MutableState<String>,
+    userHours: MutableState<Int>,
+    userMinutes: MutableState<Int>,
+    userSeconds: MutableState<Int>,
+    onSubmit: () -> Unit
+) {
+    ScalingLazyColumn(
         modifier = Modifier
-            .fillMaxSize(),
-        contentAlignment = Alignment.Center
+            .fillMaxSize()
+            .padding(horizontal = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        if (showButton.value) {
-            Button(
-                onClick = { SendJson(coroutineScope = coroutineScope,showButton = showButton,
-                    resultText = resultText) },
-                modifier = Modifier
-                    .fillMaxWidth(0.8f) // optional width
-                    .height(48.dp),
-                colors = ButtonDefaults.buttonColors(
-                    backgroundColor = Color(0xFF990099), // Purple 500
-                    contentColor = Color.White           // Text color
-                )
-            ) {
-                Text("Check Qualification")
-            }
-        } else {
+        item {
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                if (resultText.value == "Calculating...") {
-                    CircularProgressIndicator()
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-
                 Text(
-                    text = resultText.value,
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.body1
+                    text = "Boston Marathon",
+                    style = MaterialTheme.typography.body1,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "Qualification Check",
+                    style = MaterialTheme.typography.body2,
+                    textAlign = TextAlign.Center
                 )
             }
         }
 
+        // Age Picker
+        item {
+            AgeSelector(
+                selectedAge = userAge.value,
+                onAgeSelected = { userAge.value = it }
+            )
+        }
+
+        // Gender Selection
+        item {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Gender",
+                    style = MaterialTheme.typography.body1,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    CompactChip(
+                        onClick = { userGender.value = "M" },
+                        label = { Text("Male") },
+                        colors = ChipDefaults.chipColors(
+                            backgroundColor = if (userGender.value == "M")
+                                Color(0xFF990099) else MaterialTheme.colors.surface
+                        )
+                    )
+                    CompactChip(
+                        onClick = { userGender.value = "F" },
+                        label = { Text("Female") },
+                        colors = ChipDefaults.chipColors(
+                            backgroundColor = if (userGender.value == "F")
+                                Color(0xFF990099) else MaterialTheme.colors.surface
+                        )
+                    )
+                }
+            }
+        }
+
+        // Time Display
+        item {
+            RaceTimeSelector(
+                hours = userHours.value,
+                minutes = userMinutes.value,
+                seconds = userSeconds.value,
+                onHoursSelected = { userHours.value = it },
+                onMinutesSelected = { userMinutes.value = it },
+                onSecondsSelected = { userSeconds.value = it }
+            )
+        }
+
+        // Submit Button
+        item {
+            Button(
+                onClick = onSubmit,
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .height(48.dp),
+                colors = ButtonDefaults.buttonColors(
+                    backgroundColor = Color(0xFF990099),
+                    contentColor = Color.White
+                )
+            ) {
+                Text("Check", style = MaterialTheme.typography.button)
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
+        }
     }
 }
 
-suspend fun sendJsonRequest(): String = withContext(Dispatchers.IO) {
+@Composable
+fun PickerRow(
+    label: String,
+    value: String,
+    onIncrease: () -> Unit,
+    onDecrease: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.body1,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            // Decrease Button
+            CompactChip(
+                onClick = onDecrease,
+                label = { Text("−", style = MaterialTheme.typography.title3) },
+                colors = ChipDefaults.chipColors(
+                    backgroundColor = Color(0xFF660066),
+                    contentColor = Color.White
+                ),
+                modifier = Modifier.size(40.dp)
+            )
+
+            // Value Display
+            Text(
+                text = value,
+                style = MaterialTheme.typography.title2,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.widthIn(min = 32.dp)
+            )
+
+            // Increase Button
+            CompactChip(
+                onClick = onIncrease,
+                label = { Text("+", style = MaterialTheme.typography.title3) },
+                colors = ChipDefaults.chipColors(
+                    backgroundColor = Color(0xFF660066),
+                    contentColor = Color.White
+                ),
+                modifier = Modifier.size(40.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun LoadingScreen() {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(48.dp),
+            strokeWidth = 4.dp
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Checking Qualification...",
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.body1
+        )
+    }
+}
+
+@Composable
+fun ResultScreen(
+    resultText: MutableState<String>,
+    onReset: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(vertical = 32.dp, horizontal = 20.dp)
+    ) {
+        // Top spacer for proper margin from time
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Result text in center
+        Text(
+            text = resultText.value,
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.body1,
+            color = MaterialTheme.colors.onBackground,
+            modifier = Modifier.weight(1f, fill = false)
+        )
+
+        // Clean button with bottom margin
+        CompactChip(
+            onClick = onReset,
+            label = { Text("Check Again", style = MaterialTheme.typography.body2) },
+            colors = ChipDefaults.chipColors(
+                backgroundColor = Color(0xFF990099),
+                contentColor = Color.White
+            ),
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+    }
+}
+
+suspend fun sendJsonRequest(
+    age: String,
+    gender: String,
+    hours: String,
+    minutes: String,
+    seconds: String
+): String = withContext(Dispatchers.IO) {
     val client = OkHttpClient()
 
     val json = """
         {
-          "AGE_IN": 36,
-          "GENDER_IN": "F",
-          "HOURS_IN": 2,
-          "MINUTES_IN": 50,
-          "SECONDS_IN": 0
+          "AGE_IN": ${age.toInt()},
+          "GENDER_IN": "$gender",
+          "HOURS_IN": ${hours.toInt()},
+          "MINUTES_IN": ${minutes.toInt()},
+          "SECONDS_IN": ${seconds.toInt()}
         }
     """.trimIndent()
 
@@ -170,36 +704,4 @@ suspend fun sendJsonRequest(): String = withContext(Dispatchers.IO) {
     } catch (e: Exception) {
         return@withContext "Exception: ${e.message}"
     }
-}
-
-fun SendJson(coroutineScope: CoroutineScope,
-             showButton: MutableState<Boolean>,
-             resultText: MutableState<String>) {
-
-
-
-    coroutineScope.launch {
-        showButton.value = false
-
-        delay(1000)
-        val output = sendJsonRequest();
-
-        val json = JSONObject(output)
-        val message = json.getString("RESULT_MESSAGE_OUT")
-
-        val displayMessage = when (message) {
-            "QUALIFIED" -> "✅\nYou Are Qualified for Boston 2026 Marathon"
-            "NOT QUALIFIED" -> "❌\nYou Are Not Qualified for Boston 2026 Marathon"
-            else -> "❗ Error: Unexpected result \"$message\""
-        }
-
-        resultText.value = displayMessage
-    }
-}
-
-@Preview(device = WearDevices.LARGE_ROUND, showSystemUi = true)
-@Composable
-fun DefaultPreview() {
-    ButtonJson(showButton = mutableStateOf(true),
-        resultText = mutableStateOf("Calculating..."))
 }
