@@ -52,8 +52,16 @@ dependencies {
     implementation(libs.wear.tooling.preview)
     implementation(libs.activity.compose)
     implementation(libs.core.splashscreen)
+
+    // Add Wear Compose Navigation - REQUIRED for the redesigned app
+    implementation("androidx.wear.compose:compose-navigation:1.4.0")
+
+    // Optional but recommended - adds useful animations
+    implementation("androidx.compose.animation:animation:1.7.5")
+
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.ui.test.junit4)
     debugImplementation(libs.ui.tooling)
     debugImplementation(libs.ui.test.manifest)
+
 }
