@@ -37,6 +37,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -76,50 +78,54 @@ object AppColors {
 
 @Composable
 fun BostonMarathonApp() {
-    var currentScreen by remember { mutableStateOf("input") }
-    var userData by remember { mutableStateOf(UserData()) }
-    var resultText by remember { mutableStateOf("") }
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        var currentScreen by remember { mutableStateOf("input") }
+        var userData by remember { mutableStateOf(UserData()) }
+        var resultText by remember { mutableStateOf("") }
 
-    Scaffold(
-        timeText = {
-            TimeText(
-                modifier = Modifier.alpha(0.9f)
-            )
-        },
-        positionIndicator = {
-            if (currentScreen == "input") {
-                PositionIndicator(
-                    scalingLazyListState = rememberScalingLazyListState()
+        Scaffold(
+            timeText = {
+                TimeText(
+                    modifier = Modifier.alpha(0.9f)
                 )
+            },
+            positionIndicator = {
+                if (currentScreen == "input") {
+                    PositionIndicator(
+                        scalingLazyListState = rememberScalingLazyListState()
+                    )
+                }
             }
-        }
-    ) {
-        Crossfade(
-            targetState = currentScreen,
-            animationSpec = tween(300)
-        ) { screen ->
-            when (screen) {
-                "input" -> {
-                    InputScreen(
-                        userData = userData,
-                        onUserDataChange = { userData = it },
-                        onSubmit = { currentScreen = "loading" }
-                    )
-                }
-                "loading" -> {
-                    LoadingScreen(
-                        userData = userData,
-                        onResult = { result ->
-                            resultText = result
-                            currentScreen = "result"
-                        }
-                    )
-                }
-                "result" -> {
-                    ResultScreen(
-                        resultText = resultText,
-                        onReset = { currentScreen = "input" }
-                    )
+        ) {
+            Crossfade(
+                targetState = currentScreen,
+                animationSpec = tween(300)
+            ) { screen ->
+                when (screen) {
+                    "input" -> {
+                        InputScreen(
+                            userData = userData,
+                            onUserDataChange = { userData = it },
+                            onSubmit = { currentScreen = "loading" }
+                        )
+                    }
+
+                    "loading" -> {
+                        LoadingScreen(
+                            userData = userData,
+                            onResult = { result ->
+                                resultText = result
+                                currentScreen = "result"
+                            }
+                        )
+                    }
+
+                    "result" -> {
+                        ResultScreen(
+                            resultText = resultText,
+                            onReset = { currentScreen = "input" }
+                        )
+                    }
                 }
             }
         }
@@ -768,7 +774,7 @@ suspend fun sendJsonRequest(
     val body = RequestBody.create(mediaType, json)
 
     val request = Request.Builder()
-        .url("http://10.141.13.213:1897/Rocket-Build-25/BQM/1.4/INPUT-REQUEST")
+        .url("http://10.141.13.69:1897/Rocket-Build-25/BQM/1.4/INPUT-REQUEST")
         .put(body)
         .addHeader("Content-Type", "application/json")
         .build()
