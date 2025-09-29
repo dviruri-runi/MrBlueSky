@@ -3,6 +3,7 @@ package com.example.mrbluesky.presentation
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -82,6 +83,11 @@ fun BostonMarathonApp() {
         var currentScreen by remember { mutableStateOf("input") }
         var userData by remember { mutableStateOf(UserData()) }
         var resultText by remember { mutableStateOf("") }
+
+        // Handle physical back button
+        BackHandler(enabled = currentScreen == "result" || currentScreen == "loading") {
+            currentScreen = "input"
+        }
 
         Scaffold(
             timeText = {
@@ -343,15 +349,15 @@ fun GenderSelector(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 4.dp), // Match other components
-        contentAlignment = Alignment.Center // Center the entire component
+            .padding(horizontal = 20.dp, vertical = 4.dp),
+        contentAlignment = Alignment.Center
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(AppColors.SurfaceVariant)
-                .padding(vertical = 8.dp, horizontal = 12.dp), // Match InputCard padding
+                .padding(vertical = 8.dp, horizontal = 12.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(
@@ -364,7 +370,7 @@ fun GenderSelector(
                     color = AppColors.OnSurfaceSecondary,
                     textAlign = TextAlign.Center
                 )
-                Spacer(modifier = Modifier.height(4.dp)) // Match other components spacing
+                Spacer(modifier = Modifier.height(4.dp))
                 Box(
                     modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
@@ -418,15 +424,15 @@ fun TimeInputCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 4.dp), // Match other components
-        contentAlignment = Alignment.Center // Center the entire component
+            .padding(horizontal = 20.dp, vertical = 4.dp),
+        contentAlignment = Alignment.Center
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(AppColors.SurfaceVariant)
-                .padding(vertical = 8.dp, horizontal = 12.dp), // Match InputCard padding
+                .padding(vertical = 8.dp, horizontal = 12.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(
@@ -439,9 +445,8 @@ fun TimeInputCard(
                     color = AppColors.OnSurfaceSecondary,
                     textAlign = TextAlign.Center
                 )
-                Spacer(modifier = Modifier.height(4.dp)) // Match other components spacing
+                Spacer(modifier = Modifier.height(4.dp))
 
-                // Compact time display
                 Box(
                     modifier = Modifier.fillMaxWidth(),
                     contentAlignment = Alignment.Center
@@ -606,7 +611,7 @@ fun LoadingScreen(
         )
 
         progress.value = 1f
-        delay(500) // Show complete progress briefly
+        delay(500)
 
         try {
             val json = JSONObject(result)
@@ -627,7 +632,6 @@ fun LoadingScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Custom progress indicator
             Box(contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(
                     progress = progress.value,
@@ -683,7 +687,7 @@ fun ResultScreen(
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.padding(20.dp)
         ) {
             // Result icon with animation
@@ -731,26 +735,47 @@ fun ResultScreen(
                 )
             }
 
-            // Try again button
-            Chip(
-                onClick = onReset,
-                label = {
-                    Text(
-                        text = "CHECK AGAIN",
-                        style = MaterialTheme.typography.button.copy(fontSize = 11.sp)
-                    )
-                },
-                colors = ChipDefaults.chipColors(
-                    backgroundColor = AppColors.Primary,
-                    contentColor = Color.White
-                ),
-                modifier = Modifier.fillMaxWidth(0.7f)
-            )
+            // Buttons
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Check again button
+                Chip(
+                    onClick = onReset,
+                    label = {
+                        Text(
+                            text = "CHECK AGAIN",
+                            style = MaterialTheme.typography.button.copy(fontSize = 11.sp)
+                        )
+                    },
+                    colors = ChipDefaults.chipColors(
+                        backgroundColor = AppColors.Primary,
+                        contentColor = Color.White
+                    ),
+                    modifier = Modifier.fillMaxWidth(0.7f)
+                )
+
+                // Back button
+                Chip(
+                    onClick = onReset,
+                    label = {
+                        Text(
+                            text = "← BACK",
+                            style = MaterialTheme.typography.button.copy(fontSize = 11.sp)
+                        )
+                    },
+                    colors = ChipDefaults.chipColors(
+                        backgroundColor = AppColors.SurfaceVariant,
+                        contentColor = AppColors.OnSurfaceSecondary
+                    ),
+                    modifier = Modifier.fillMaxWidth(0.7f)
+                )
+            }
         }
     }
 }
 
-// API call function remains the same
 suspend fun sendJsonRequest(
     age: String,
     gender: String,
