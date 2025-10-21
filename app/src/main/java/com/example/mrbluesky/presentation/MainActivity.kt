@@ -376,21 +376,23 @@ fun GenderSelector(
                     contentAlignment = Alignment.Center
                 ) {
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         CompactChip(
                             onClick = { onGenderChange("M") },
                             label = {
                                 Text(
                                     "Male",
-                                    fontSize = 11.sp,
+                                    fontSize = 9.sp,
+                                    textAlign = TextAlign.Center,
                                     color = if (selectedGender == "M") Color.White else AppColors.OnSurfaceSecondary
                                 )
                             },
-                            modifier = Modifier.height(32.dp),
+                            modifier = Modifier.height(40.dp),
                             colors = ChipDefaults.chipColors(
                                 backgroundColor = if (selectedGender == "M") AppColors.Primary else AppColors.Surface
-                            )
+                            ),
+                            contentPadding = PaddingValues(horizontal = 7.dp, vertical = 3.dp)
                         )
 
                         CompactChip(
@@ -398,14 +400,34 @@ fun GenderSelector(
                             label = {
                                 Text(
                                     "Female",
-                                    fontSize = 11.sp,
+                                    fontSize = 9.sp,
+                                    textAlign = TextAlign.Center,
                                     color = if (selectedGender == "F") Color.White else AppColors.OnSurfaceSecondary
                                 )
                             },
-                            modifier = Modifier.height(32.dp),
+                            modifier = Modifier.height(40.dp),
                             colors = ChipDefaults.chipColors(
                                 backgroundColor = if (selectedGender == "F") AppColors.Primary else AppColors.Surface
-                            )
+                            ),
+                            contentPadding = PaddingValues(horizontal = 7.dp, vertical = 3.dp)
+                        )
+
+                        CompactChip(
+                            onClick = { onGenderChange("NB") },
+                            label = {
+                                Text(
+                                    "Non Binary",
+                                    fontSize = 9.sp,
+                                    lineHeight = 9.sp,
+                                    textAlign = TextAlign.Center,
+                                    color = if (selectedGender == "NB") Color.White else AppColors.OnSurfaceSecondary
+                                )
+                            },
+                            modifier = Modifier.height(40.dp),
+                            colors = ChipDefaults.chipColors(
+                                backgroundColor = if (selectedGender == "NB") AppColors.Primary else AppColors.Surface
+                            ),
+                            contentPadding = PaddingValues(horizontal = 7.dp, vertical = 2.dp)
                         )
                     }
                 }
@@ -595,9 +617,10 @@ fun LoadingScreen(
     LaunchedEffect(Unit) {
         // Animate progress while loading
         launch {
+            progress.value = 0.00f
             while (progress.value < 0.9f) {
-                delay(50)
-                progress.value += 0.05f
+                delay(10)
+                progress.value += 0.01f
             }
         }
 
@@ -610,7 +633,7 @@ fun LoadingScreen(
             userData.seconds.toString()
         )
 
-        progress.value = 1f
+        progress.value = 0.99f
         delay(500)
 
         try {
@@ -726,8 +749,8 @@ fun ResultScreen(
 
                 Text(
                     text = if (isQualified)
-                        "You qualify for\nBoston Marathon 2026"
-                    else "You don't qualify yet for\nBoston Marathon 2026",
+                        "You qualify for the\n2026 Boston Marathon!"
+                    else "You do not qualify for the\n2026 Boston Marathon yet",
                     style = MaterialTheme.typography.body2.copy(fontSize = 12.sp),
                     color = AppColors.OnSurface,
                     textAlign = TextAlign.Center,
@@ -799,7 +822,7 @@ suspend fun sendJsonRequest(
     val body = RequestBody.create(mediaType, json)
 
     val request = Request.Builder()
-        .url("http://10.141.13.69:1897/Rocket-Build-25/BQM/1.4/INPUT-REQUEST")
+        .url("http://services-emea.skytap.com:9007/rocket-build25-elt/BQM/1.9/INPUT-REQUEST")
         .put(body)
         .addHeader("Content-Type", "application/json")
         .build()
