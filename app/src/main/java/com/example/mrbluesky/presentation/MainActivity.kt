@@ -7,6 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -38,8 +39,12 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.LayoutDirection
+import com.example.mrbluesky.R
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -211,7 +216,7 @@ fun HeaderSection() {
     val infiniteTransition = rememberInfiniteTransition()
     val scale by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue = 1.05f,
+        targetValue = 1f,
         animationSpec = infiniteRepeatable(
             animation = tween(2000),
             repeatMode = RepeatMode.Reverse
@@ -239,11 +244,14 @@ fun HeaderSection() {
                     .fillMaxWidth()
                     .padding(vertical = 12.dp)
             ) {
-                Text(
-                    text = "🏃",
-                    fontSize = 24.sp,
-                    modifier = Modifier.scale(scale)
+                Image(
+                    painter = painterResource(id = R.drawable.running),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .scale(scale)
+                        .size(24.dp) // equivalent to 24.sp for fixed-size images
                 )
+
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Boston Marathon",
@@ -376,7 +384,7 @@ fun GenderSelector(
                     contentAlignment = Alignment.Center
                 ) {
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
                         CompactChip(
                             onClick = { onGenderChange("M") },
@@ -589,6 +597,7 @@ fun AnimatedSubmitButton(onClick: () -> Unit) {
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth(0.8f)
+            .height(40.dp)
             .scale(scale),
         colors = ButtonDefaults.buttonColors(
             backgroundColor = AppColors.Primary,
@@ -708,11 +717,17 @@ fun ResultScreen(
             .background(MaterialTheme.colors.background),
         contentAlignment = Alignment.Center
     ) {
+
+        val scrollState = rememberScrollState()
+
         Column(
+            modifier = Modifier
+                .verticalScroll(scrollState)
+                .padding(10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.padding(20.dp)
-        ) {
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        )
+        {
             // Result icon with animation
             Box(
                 modifier = Modifier
@@ -736,12 +751,12 @@ fun ResultScreen(
             // Result message
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
                 Text(
                     text = if (isQualified) "Congratulations!" else "Keep Training!",
                     style = MaterialTheme.typography.title2.copy(
-                        fontSize = 18.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     ),
                     color = if (isQualified) AppColors.Success else AppColors.Error
@@ -751,35 +766,53 @@ fun ResultScreen(
                     text = if (isQualified)
                         "You qualify for the\n2026 Boston Marathon!"
                     else "You do not qualify for the\n2026 Boston Marathon yet",
-                    style = MaterialTheme.typography.body2.copy(fontSize = 12.sp),
+                    style = MaterialTheme.typography.body2.copy(fontSize = 10.sp),
                     color = AppColors.OnSurface,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 20.dp)
+                    modifier = Modifier.padding(horizontal = 10.dp)
                 )
             }
 
             // Buttons
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 // Check again button
-                Chip(
+                val interactionSource = remember { MutableInteractionSource() }
+                val isPressed by interactionSource.collectIsPressedAsState()
+
+                val scale by animateFloatAsState(
+                    targetValue = if (isPressed) 0.95f else 1f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessLow
+                    )
+                )
+
+                Button(
                     onClick = onReset,
-                    label = {
-                        Text(
-                            text = "CHECK AGAIN",
-                            style = MaterialTheme.typography.button.copy(fontSize = 11.sp)
-                        )
-                    },
-                    colors = ChipDefaults.chipColors(
+                    modifier = Modifier
+                        .fillMaxWidth(0.6f)
+                        .height(25.dp) // Set your desired height here
+                        .scale(scale),
+                    colors = ButtonDefaults.buttonColors(
                         backgroundColor = AppColors.Primary,
                         contentColor = Color.White
                     ),
-                    modifier = Modifier.fillMaxWidth(0.7f)
-                )
+                    interactionSource = interactionSource
+                ) {
+                    Text(
+                        text = "Go Back",
+                        style = MaterialTheme.typography.button.copy(
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
 
-                // Back button
+
+                /* Back button
                 Chip(
                     onClick = onReset,
                     label = {
@@ -793,7 +826,7 @@ fun ResultScreen(
                         contentColor = AppColors.OnSurfaceSecondary
                     ),
                     modifier = Modifier.fillMaxWidth(0.7f)
-                )
+                ) */
             }
         }
     }
@@ -822,7 +855,7 @@ suspend fun sendJsonRequest(
     val body = RequestBody.create(mediaType, json)
 
     val request = Request.Builder()
-        .url("http://services-emea.skytap.com:9007/rocket-build25-elt/BQM/1.9/INPUT-REQUEST")
+        .url("http://services-emea.skytap.com:9007/rocket-build25-elt/BQM/1.11/INPUT-REQUEST")
         .put(body)
         .addHeader("Content-Type", "application/json")
         .build()
