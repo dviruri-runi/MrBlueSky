@@ -2,16 +2,16 @@
 
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item
-        android:width="120dp"
-        android:height="120dp"
+        android:width="48dp"
+        android:height="48dp"
         android:gravity="center">
         <shape android:shape="oval">
             <solid android:color="#000000" />
         </shape>
     </item>
     <item
-        android:width="80dp"
-        android:height="80dp"
+        android:width="30dp"
+        android:height="30dp"
         android:gravity="center"
         android:drawable="@drawable/running">
     </item>

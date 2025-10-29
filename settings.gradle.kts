@@ -21,4 +21,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "MrBlueSky"
 include(":app")
+include(":watch")
  

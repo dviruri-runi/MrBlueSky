@@ -5,6 +5,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
@@ -12,22 +15,24 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.wear.compose.foundation.lazy.AutoCenteringParams
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
-import androidx.wear.compose.material.*
+import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import com.example.mrbluesky.presentation.theme.MrBlueSkyTheme
+import com.example.mrbluesky.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
@@ -37,20 +42,21 @@ import okhttp3.RequestBody
 import org.json.JSONObject
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.LayoutDirection
-import com.example.mrbluesky.R
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
-        setTheme(android.R.style.Theme_DeviceDefault)
+
+        // Enable edge-to-edge display but keep status bar
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+
+        // Hide only navigation bar, keep status bar visible
+        val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
+        windowInsetsController.apply {
+            hide(WindowInsetsCompat.Type.navigationBars())
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
 
         setContent {
             MrBlueSkyTheme {
@@ -84,59 +90,47 @@ object AppColors {
 
 @Composable
 fun BostonMarathonApp() {
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-        var currentScreen by remember { mutableStateOf("input") }
-        var userData by remember { mutableStateOf(UserData()) }
-        var resultText by remember { mutableStateOf("") }
+    var currentScreen by remember { mutableStateOf("input") }
+    var userData by remember { mutableStateOf(UserData()) }
+    var resultText by remember { mutableStateOf("") }
 
-        // Handle physical back button
-        BackHandler(enabled = currentScreen == "result" || currentScreen == "loading") {
-            currentScreen = "input"
-        }
+    // Handle physical back button
+    BackHandler(enabled = currentScreen == "result" || currentScreen == "loading") {
+        currentScreen = "input"
+    }
 
-        Scaffold(
-            timeText = {
-                TimeText(
-                    modifier = Modifier.alpha(0.9f)
-                )
-            },
-            positionIndicator = {
-                if (currentScreen == "input") {
-                    PositionIndicator(
-                        scalingLazyListState = rememberScalingLazyListState()
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = Color(0xFF121212)
+    ) {
+        Crossfade(
+            targetState = currentScreen,
+            animationSpec = tween(300)
+        ) { screen ->
+            when (screen) {
+                "input" -> {
+                    InputScreen(
+                        userData = userData,
+                        onUserDataChange = { userData = it },
+                        onSubmit = { currentScreen = "loading" }
                     )
                 }
-            }
-        ) {
-            Crossfade(
-                targetState = currentScreen,
-                animationSpec = tween(300)
-            ) { screen ->
-                when (screen) {
-                    "input" -> {
-                        InputScreen(
-                            userData = userData,
-                            onUserDataChange = { userData = it },
-                            onSubmit = { currentScreen = "loading" }
-                        )
-                    }
 
-                    "loading" -> {
-                        LoadingScreen(
-                            userData = userData,
-                            onResult = { result ->
-                                resultText = result
-                                currentScreen = "result"
-                            }
-                        )
-                    }
+                "loading" -> {
+                    LoadingScreen(
+                        userData = userData,
+                        onResult = { result ->
+                            resultText = result
+                            currentScreen = "result"
+                        }
+                    )
+                }
 
-                    "result" -> {
-                        ResultScreen(
-                            resultText = resultText,
-                            onReset = { currentScreen = "input" }
-                        )
-                    }
+                "result" -> {
+                    ResultScreen(
+                        resultText = resultText,
+                        onReset = { currentScreen = "input" }
+                    )
                 }
             }
         }
@@ -149,469 +143,370 @@ fun InputScreen(
     onUserDataChange: (UserData) -> Unit,
     onSubmit: () -> Unit
 ) {
-    val listState = rememberScalingLazyListState(initialCenterItemIndex = 1)
+    val scrollState = rememberScrollState()
 
-    ScalingLazyColumn(
-        state = listState,
-        modifier = Modifier.fillMaxSize(),
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-        autoCentering = AutoCenteringParams(itemIndex = 1)
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        // Top spacer for better centering
-        item { Spacer(modifier = Modifier.height(20.dp)) }
+        // Add top padding to replace the top bar
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Header with animation
-        item {
-            HeaderSection()
+        // Header Card with running image
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = AppColors.Surface),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Running image
+                Image(
+                    painter = painterResource(id = R.drawable.running),
+                    contentDescription = "Running",
+                    modifier = Modifier.size(64.dp)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Boston Marathon\nQualification Checker",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = Color.White,
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Check if your time qualifies for Boston 2026",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = AppColors.OnSurfaceSecondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
         }
 
-        // Age Selection
-        item {
-            InputCard(title = "Age") {
-                InlineNumberPicker(
-                    value = userData.age,
-                    onValueChange = { onUserDataChange(userData.copy(age = it)) },
-                    range = 18..80,
-                    label = "years"
+        // Age Input
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = AppColors.SurfaceVariant),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Age",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
                 )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            if (userData.age > 18) onUserDataChange(userData.copy(age = userData.age - 1))
+                        },
+                        modifier = Modifier.size(56.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = AppColors.Primary
+                        ),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(
+                            brush = androidx.compose.ui.graphics.SolidColor(AppColors.Primary)
+                        ),
+                        shape = CircleShape,
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text("-", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    Spacer(modifier = Modifier.width(32.dp))
+
+                    Text(
+                        text = "${userData.age} years",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = AppColors.Primary,
+                        textAlign = TextAlign.Center,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(modifier = Modifier.width(32.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            if (userData.age < 80) onUserDataChange(userData.copy(age = userData.age + 1))
+                        },
+                        modifier = Modifier.size(56.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = AppColors.Primary
+                        ),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(
+                            brush = androidx.compose.ui.graphics.SolidColor(AppColors.Primary)
+                        ),
+                        shape = CircleShape,
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text("+", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
 
         // Gender Selection
-        item {
-            GenderSelector(
-                selectedGender = userData.gender,
-                onGenderChange = { onUserDataChange(userData.copy(gender = it)) }
-            )
-        }
-
-        // Race Time
-        item {
-            TimeInputCard(
-                hours = userData.hours,
-                minutes = userData.minutes,
-                seconds = userData.seconds,
-                onTimeChange = { h, m, s ->
-                    onUserDataChange(userData.copy(hours = h, minutes = m, seconds = s))
-                }
-            )
-        }
-
-        // Submit Button
-        item {
-            Spacer(modifier = Modifier.height(8.dp))
-            AnimatedSubmitButton(onClick = onSubmit)
-        }
-
-        // Bottom spacing
-        item {
-            Spacer(modifier = Modifier.height(40.dp))
-        }
-    }
-}
-
-@Composable
-fun HeaderSection() {
-    val infiniteTransition = rememberInfiniteTransition()
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000),
-            repeatMode = RepeatMode.Reverse
-        )
-    )
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp),
-        contentAlignment = Alignment.Center
-    ) {
         Card(
-            onClick = { },
-            enabled = false,
             modifier = Modifier.fillMaxWidth(),
-            backgroundPainter = CardDefaults.cardBackgroundPainter(
-                startBackgroundColor = AppColors.Surface,
-                endBackgroundColor = AppColors.Surface
-            )
+            colors = CardDefaults.cardColors(containerColor = AppColors.SurfaceVariant),
+            shape = RoundedCornerShape(16.dp)
         ) {
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 12.dp)
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.running),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .scale(scale)
-                        .size(24.dp) // equivalent to 24.sp for fixed-size images
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Boston Marathon",
-                    style = MaterialTheme.typography.title3.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    ),
-                    color = AppColors.Primary,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = "Qualification Checker",
-                    style = MaterialTheme.typography.body2.copy(fontSize = 11.sp),
-                    color = AppColors.OnSurfaceSecondary,
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun InputCard(
-    title: String,
-    content: @Composable () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 4.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(AppColors.SurfaceVariant)
-                .padding(vertical = 8.dp, horizontal = 12.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.caption3,
-                    color = AppColors.OnSurfaceSecondary,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    content()
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun InlineNumberPicker(
-    value: Int,
-    onValueChange: (Int) -> Unit,
-    range: IntRange,
-    label: String
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        CompactChip(
-            onClick = { if (value > range.first) onValueChange(value - 1) },
-            modifier = Modifier.size(32.dp),
-            colors = ChipDefaults.chipColors(backgroundColor = AppColors.PrimaryDark),
-            label = { Text("−", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
-        )
-
-        Text(
-            text = value.toString(),
-            style = MaterialTheme.typography.title2.copy(fontSize = 20.sp),
-            color = AppColors.Primary,
-            modifier = Modifier.widthIn(min = 40.dp),
-            textAlign = TextAlign.Center
-        )
-
-        CompactChip(
-            onClick = { if (value < range.last) onValueChange(value + 1) },
-            modifier = Modifier.size(32.dp),
-            colors = ChipDefaults.chipColors(backgroundColor = AppColors.PrimaryDark),
-            label = { Text("+", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
-        )
-    }
-}
-
-@Composable
-fun GenderSelector(
-    selectedGender: String,
-    onGenderChange: (String) -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 4.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(AppColors.SurfaceVariant)
-                .padding(vertical = 8.dp, horizontal = 12.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = "Gender",
-                    style = MaterialTheme.typography.caption3,
-                    color = AppColors.OnSurfaceSecondary,
-                    textAlign = TextAlign.Center
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Box(
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // First row: Male and Female
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
-                    ) {
-                        CompactChip(
-                            onClick = { onGenderChange("M") },
-                            label = {
-                                Text(
-                                    "Male",
-                                    fontSize = 9.sp,
-                                    textAlign = TextAlign.Center,
-                                    color = if (selectedGender == "M") Color.White else AppColors.OnSurfaceSecondary
-                                )
-                            },
-                            modifier = Modifier.height(40.dp),
-                            colors = ChipDefaults.chipColors(
-                                backgroundColor = if (selectedGender == "M") AppColors.Primary else AppColors.Surface
-                            ),
-                            contentPadding = PaddingValues(horizontal = 7.dp, vertical = 3.dp)
+                    FilterChip(
+                        onClick = { onUserDataChange(userData.copy(gender = "M")) },
+                        label = {
+                            Text(
+                                "Male",
+                                color = if (userData.gender == "M") Color.White else AppColors.OnSurfaceSecondary,
+                                fontWeight = FontWeight.Medium,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        },
+                        selected = userData.gender == "M",
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = AppColors.Surface,
+                            selectedContainerColor = AppColors.Primary
                         )
+                    )
+                    FilterChip(
+                        onClick = { onUserDataChange(userData.copy(gender = "F")) },
+                        label = {
+                            Text(
+                                "Female",
+                                color = if (userData.gender == "F") Color.White else AppColors.OnSurfaceSecondary,
+                                fontWeight = FontWeight.Medium,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        },
+                        selected = userData.gender == "F",
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = AppColors.Surface,
+                            selectedContainerColor = AppColors.Primary
+                        )
+                    )
+                }
 
-                        CompactChip(
-                            onClick = { onGenderChange("F") },
-                            label = {
-                                Text(
-                                    "Female",
-                                    fontSize = 9.sp,
-                                    textAlign = TextAlign.Center,
-                                    color = if (selectedGender == "F") Color.White else AppColors.OnSurfaceSecondary
-                                )
-                            },
-                            modifier = Modifier.height(40.dp),
-                            colors = ChipDefaults.chipColors(
-                                backgroundColor = if (selectedGender == "F") AppColors.Primary else AppColors.Surface
-                            ),
-                            contentPadding = PaddingValues(horizontal = 7.dp, vertical = 3.dp)
-                        )
+                Spacer(modifier = Modifier.height(12.dp))
 
-                        CompactChip(
-                            onClick = { onGenderChange("NB") },
-                            label = {
-                                Text(
-                                    "Non Binary",
-                                    fontSize = 9.sp,
-                                    lineHeight = 9.sp,
-                                    textAlign = TextAlign.Center,
-                                    color = if (selectedGender == "NB") Color.White else AppColors.OnSurfaceSecondary
-                                )
-                            },
-                            modifier = Modifier.height(40.dp),
-                            colors = ChipDefaults.chipColors(
-                                backgroundColor = if (selectedGender == "NB") AppColors.Primary else AppColors.Surface
-                            ),
-                            contentPadding = PaddingValues(horizontal = 7.dp, vertical = 2.dp)
+                // Second row: Non Binary (centered)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    FilterChip(
+                        onClick = { onUserDataChange(userData.copy(gender = "NB")) },
+                        label = {
+                            Text(
+                                "Non Binary",
+                                color = if (userData.gender == "NB") Color.White else AppColors.OnSurfaceSecondary,
+                                fontWeight = FontWeight.Medium,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        },
+                        selected = userData.gender == "NB",
+                        modifier = Modifier
+                            .fillMaxWidth(0.6f)
+                            .height(48.dp),
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = AppColors.Surface,
+                            selectedContainerColor = AppColors.Primary
                         )
-                    }
+                    )
                 }
             }
         }
-    }
-}
 
-@Composable
-fun TimeInputCard(
-    hours: Int,
-    minutes: Int,
-    seconds: Int,
-    onTimeChange: (Int, Int, Int) -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 4.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(AppColors.SurfaceVariant)
-                .padding(vertical = 8.dp, horizontal = 12.dp),
-            contentAlignment = Alignment.Center
+        // Race Time - Simplified without total time display
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = AppColors.SurfaceVariant),
+            shape = RoundedCornerShape(16.dp)
         ) {
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = "Race Time",
-                    style = MaterialTheme.typography.caption3,
-                    color = AppColors.OnSurfaceSecondary,
-                    textAlign = TextAlign.Center
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        TimeSegment(
-                            value = hours,
-                            label = "H",
-                            onIncrease = { if (hours < 8) onTimeChange(hours + 1, minutes, seconds) },
-                            onDecrease = { if (hours > 0) onTimeChange(hours - 1, minutes, seconds) }
-                        )
+                // Hours
+                TimeInputRow(
+                    label = "Hours",
+                    value = userData.hours,
+                    onValueChange = { onUserDataChange(userData.copy(hours = it)) },
+                    range = 0..10
+                )
 
-                        Text(
-                            text = ":",
-                            style = MaterialTheme.typography.title2,
-                            color = AppColors.Primary,
-                            modifier = Modifier.padding(horizontal = 4.dp)
-                        )
+                Spacer(modifier = Modifier.height(16.dp))
 
-                        TimeSegment(
-                            value = minutes,
-                            label = "M",
-                            onIncrease = {
-                                val newMinutes = if (minutes >= 59) 0 else minutes + 1
-                                onTimeChange(hours, newMinutes, seconds)
-                            },
-                            onDecrease = {
-                                val newMinutes = if (minutes <= 0) 59 else minutes - 1
-                                onTimeChange(hours, newMinutes, seconds)
-                            }
-                        )
+                // Minutes
+                TimeInputRow(
+                    label = "Minutes",
+                    value = userData.minutes,
+                    onValueChange = { onUserDataChange(userData.copy(minutes = it)) },
+                    range = 0..59
+                )
 
-                        Text(
-                            text = ":",
-                            style = MaterialTheme.typography.title2,
-                            color = AppColors.Primary,
-                            modifier = Modifier.padding(horizontal = 4.dp)
-                        )
+                Spacer(modifier = Modifier.height(16.dp))
 
-                        TimeSegment(
-                            value = seconds,
-                            label = "S",
-                            onIncrease = {
-                                val newSeconds = if (seconds >= 59) 0 else seconds + 1
-                                onTimeChange(hours, minutes, newSeconds)
-                            },
-                            onDecrease = {
-                                val newSeconds = if (seconds <= 0) 59 else seconds - 1
-                                onTimeChange(hours, minutes, newSeconds)
-                            }
-                        )
-                    }
-                }
+                // Seconds
+                TimeInputRow(
+                    label = "Seconds",
+                    value = userData.seconds,
+                    onValueChange = { onUserDataChange(userData.copy(seconds = it)) },
+                    range = 0..59
+                )
             }
         }
+
+        // Submit Button
+        Button(
+            onClick = onSubmit,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = AppColors.Primary
+            ),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text(
+                text = "Check Qualification",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp
+            )
+        }
+
+        // Bottom spacing
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
 @Composable
-fun TimeSegment(
-    value: Int,
+fun TimeInputRow(
     label: String,
-    onIncrease: () -> Unit,
-    onDecrease: () -> Unit
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    range: IntRange
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        CompactChip(
-            onClick = onIncrease,
-            modifier = Modifier.size(width = 36.dp, height = 20.dp),
-            colors = ChipDefaults.chipColors(
-                backgroundColor = AppColors.PrimaryDark.copy(alpha = 0.5f)
-            ),
-            label = { Text("▲", fontSize = 10.sp) }
-        )
-
-        Text(
-            text = String.format("%02d", value),
-            style = MaterialTheme.typography.title2.copy(fontSize = 18.sp),
-            color = AppColors.Primary
-        )
-
         Text(
             text = label,
-            style = MaterialTheme.typography.caption3.copy(fontSize = 9.sp),
-            color = AppColors.OnSurfaceSecondary
+            style = MaterialTheme.typography.bodyLarge,
+            color = AppColors.OnSurfaceSecondary,
+            modifier = Modifier.width(80.dp),
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Start
         )
 
-        CompactChip(
-            onClick = onDecrease,
-            modifier = Modifier.size(width = 36.dp, height = 20.dp),
-            colors = ChipDefaults.chipColors(
-                backgroundColor = AppColors.PrimaryDark.copy(alpha = 0.5f)
+        Spacer(modifier = Modifier.width(16.dp))
+
+        OutlinedButton(
+            onClick = {
+                if (value > range.first) onValueChange(value - 1)
+            },
+            modifier = Modifier.size(48.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = AppColors.Primary
             ),
-            label = { Text("▼", fontSize = 10.sp) }
-        )
-    }
-}
+            border = ButtonDefaults.outlinedButtonBorder.copy(
+                brush = androidx.compose.ui.graphics.SolidColor(AppColors.Primary)
+            ),
+            shape = CircleShape,
+            contentPadding = PaddingValues(0.dp)
+        ) {
+            Text("-", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        }
 
-@Composable
-fun AnimatedSubmitButton(onClick: () -> Unit) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
+        Spacer(modifier = Modifier.width(16.dp))
 
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.95f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        )
-    )
-
-    Button(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth(0.8f)
-            .height(40.dp)
-            .scale(scale),
-        colors = ButtonDefaults.buttonColors(
-            backgroundColor = AppColors.Primary,
-            contentColor = Color.White
-        ),
-        interactionSource = interactionSource
-    ) {
         Text(
-            text = "CHECK QUALIFICATION",
-            style = MaterialTheme.typography.button.copy(
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
-            )
+            text = value.toString().padStart(2, '0'),
+            style = MaterialTheme.typography.headlineMedium,
+            color = AppColors.Primary,
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.width(60.dp)
         )
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        OutlinedButton(
+            onClick = {
+                if (value < range.last) onValueChange(value + 1)
+            },
+            modifier = Modifier.size(48.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = AppColors.Primary
+            ),
+            border = ButtonDefaults.outlinedButtonBorder.copy(
+                brush = androidx.compose.ui.graphics.SolidColor(AppColors.Primary)
+            ),
+            shape = CircleShape,
+            contentPadding = PaddingValues(0.dp)
+        ) {
+            Text("+", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        }
     }
 }
 
@@ -620,17 +515,14 @@ fun LoadingScreen(
     userData: UserData,
     onResult: (String) -> Unit
 ) {
-    val coroutineScope = rememberCoroutineScope()
-    val progress = remember { mutableStateOf(0f) }
+    val progress = remember { mutableFloatStateOf(0f) }
+    val scope = rememberCoroutineScope()
 
-    LaunchedEffect(Unit) {
-        // Animate progress while loading
-        launch {
-            progress.value = 0.00f
-            while (progress.value < 0.9f) {
-                delay(10)
-                progress.value += 0.01f
-            }
+    LaunchedEffect(userData) {
+        // Simulate progress
+        for (i in 1..99 step 5) {
+            delay(50)
+            progress.floatValue = i / 100f
         }
 
         // Make API call
@@ -642,7 +534,7 @@ fun LoadingScreen(
             userData.seconds.toString()
         )
 
-        progress.value = 0.99f
+        progress.floatValue = 0.99f
         delay(500)
 
         try {
@@ -655,40 +547,41 @@ fun LoadingScreen(
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colors.background),
+        modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(32.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(
-                    progress = progress.value,
-                    modifier = Modifier.size(64.dp),
-                    indicatorColor = AppColors.Primary,
+                    progress = { progress.floatValue },
+                    modifier = Modifier.size(100.dp),
+                    color = AppColors.Primary,
                     trackColor = AppColors.SurfaceVariant,
-                    strokeWidth = 6.dp
+                    strokeWidth = 8.dp
                 )
                 Text(
-                    text = "${(progress.value * 100).toInt()}%",
-                    style = MaterialTheme.typography.caption2,
-                    color = AppColors.OnSurfaceSecondary
+                    text = "${(progress.floatValue * 100).toInt()}%",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = AppColors.OnSurfaceSecondary,
+                    fontWeight = FontWeight.Bold
                 )
             }
 
             Text(
                 text = "Checking Qualification",
-                style = MaterialTheme.typography.body1,
-                color = AppColors.OnSurface
+                style = MaterialTheme.typography.headlineMedium,
+                color = Color.White,
+                fontWeight = FontWeight.Bold
             )
 
             Text(
-                text = "Please wait...",
-                style = MaterialTheme.typography.caption3,
-                color = AppColors.OnSurfaceSecondary
+                text = "Please wait while we verify your time...",
+                style = MaterialTheme.typography.bodyLarge,
+                color = AppColors.OnSurfaceSecondary,
+                textAlign = TextAlign.Center
             )
         }
     }
@@ -711,123 +604,83 @@ fun ResultScreen(
         )
     )
 
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colors.background),
-        contentAlignment = Alignment.Center
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-
-        val scrollState = rememberScrollState()
-
-        Column(
+        // Result Icon
+        Icon(
+            imageVector = if (isQualified) Icons.Default.CheckCircle else Icons.Default.Close,
+            contentDescription = if (isQualified) "Qualified" else "Not Qualified",
             modifier = Modifier
-                .verticalScroll(scrollState)
-                .padding(10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .size(120.dp)
+                .scale(if (isQualified) animatedScale else 1f),
+            tint = if (isQualified) AppColors.Success else AppColors.Error
         )
-        {
-            // Result icon with animation
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Result Message
+        Text(
+            text = if (isQualified) "Congratulations!" else "Keep Training!",
+            style = MaterialTheme.typography.headlineLarge,
+            color = if (isQualified) AppColors.Success else AppColors.Error,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isQualified)
+                    AppColors.Success.copy(alpha = 0.1f)
+                else
+                    AppColors.Error.copy(alpha = 0.1f)
+            ),
+            shape = RoundedCornerShape(16.dp)
+        ) {
             Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .scale(if (isQualified) animatedScale else 1f)
-                    .background(
-                        color = if (isQualified) AppColors.Success.copy(alpha = 0.2f)
-                        else AppColors.Error.copy(alpha = 0.2f),
-                        shape = CircleShape
-                    ),
+                modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = if (isQualified) "✓" else "✗",
-                    fontSize = 40.sp,
-                    color = if (isQualified) AppColors.Success else AppColors.Error,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            // Result message
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(5.dp)
-            ) {
-                Text(
-                    text = if (isQualified) "Congratulations!" else "Keep Training!",
-                    style = MaterialTheme.typography.title2.copy(
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    ),
-                    color = if (isQualified) AppColors.Success else AppColors.Error
-                )
-
                 Text(
                     text = if (isQualified)
                         "You qualify for the\n2026 Boston Marathon!"
                     else "You do not qualify for the\n2026 Boston Marathon yet",
-                    style = MaterialTheme.typography.body2.copy(fontSize = 10.sp),
-                    color = AppColors.OnSurface,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 10.dp)
+                    modifier = Modifier.padding(24.dp),
+                    fontWeight = FontWeight.Medium
                 )
             }
+        }
 
-            // Buttons
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(3.dp)
-            ) {
-                // Check again button
-                val interactionSource = remember { MutableInteractionSource() }
-                val isPressed by interactionSource.collectIsPressedAsState()
+        Spacer(modifier = Modifier.height(40.dp))
 
-                val scale by animateFloatAsState(
-                    targetValue = if (isPressed) 0.95f else 1f,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessLow
-                    )
-                )
-
-                Button(
-                    onClick = onReset,
-                    modifier = Modifier
-                        .fillMaxWidth(0.6f)
-                        .height(25.dp) // Set your desired height here
-                        .scale(scale),
-                    colors = ButtonDefaults.buttonColors(
-                        backgroundColor = AppColors.Primary,
-                        contentColor = Color.White
-                    ),
-                    interactionSource = interactionSource
-                ) {
-                    Text(
-                        text = "Go Back",
-                        style = MaterialTheme.typography.button.copy(
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    )
-                }
-
-
-                /* Back button
-                Chip(
-                    onClick = onReset,
-                    label = {
-                        Text(
-                            text = "← BACK",
-                            style = MaterialTheme.typography.button.copy(fontSize = 11.sp)
-                        )
-                    },
-                    colors = ChipDefaults.chipColors(
-                        backgroundColor = AppColors.SurfaceVariant,
-                        contentColor = AppColors.OnSurfaceSecondary
-                    ),
-                    modifier = Modifier.fillMaxWidth(0.7f)
-                ) */
-            }
+        // Action Button
+        Button(
+            onClick = onReset,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = AppColors.Primary
+            ),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text(
+                text = "Check Another Time",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp
+            )
         }
     }
 }

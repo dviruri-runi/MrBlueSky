@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark background for the app -->
+    <color name="black">#000000</color>
+    <color name="dark_background">#121212</color>
+    <color name="purple_primary">#D257FC</color>
+</resources>
